@@ -1,6 +1,6 @@
 use std::{
-    fs::{self, File},
-    io::{self, BufRead, BufReader, Lines},
+    fs,
+    io::{self, BufRead},
     path::Path,
 };
 
@@ -35,115 +35,104 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    if args.input.is_empty() {
-        eprintln!("Nothing given to work with");
-        return;
-    }
-
     if args.file {
-        let mut errors: Vec<(&String, io::Error)> = vec![];
+        process_files(&args);
+    } else if args.input.is_empty() {
+        process_stdin(&args);
+    } else {
+        process_direct_input(&args);
+    }
+}
 
-        for file_path in &args.input {
-            match fs::File::open(file_path) {
-                Ok(_) => (),
-                Err(err) => errors.push((file_path, err)),
-            }
+fn process_files(args: &Args) {
+    let mut errors = Vec::new();
+    for file_path in &args.input {
+        if let Err(err) = fs::File::open(file_path) {
+            errors.push((file_path, err));
         }
-        if !errors.is_empty() {
-            println!("There were errors opening the following files:");
-            for (file, err) in errors {
-                println!("File: {:10} |💥 Error: {}", file, err);
-            }
-            return;
-        }
+    }
 
-        for k in 0..args.count {
-            for file_path in &args.input {
-                let line_buf = read_lines(&file_path).unwrap();
-                for (i, line) in line_buf.enumerate() {
-                    if args.top.is_some_and(|x| x <= i + 1) {
-                        break;
-                    }
-                    println!("{}", line.unwrap());
-                }
-                if args.count - 1 > k {
-                    if let Some(separator_option) = args.white_space.as_ref() {
-                        let separator = separator_option.as_deref().unwrap_or("");
-                        println!("{}", separator);
-                    }
-                }
-            }
-        }
+    if !errors.is_empty() {
+        report_errors(&errors);
         return;
     }
 
-    let input_combined = args.input.join(" ");
-    let i = args.count;
-    for _ in 0..args.count {
-        println!("{}", input_combined);
-
-        // if args.top.is_some_and(|x| x <= i - 1) {
-        //     if let Some(separator_option) = args.white_space.as_ref() {
-        //         let separator = separator_option.as_deref().unwrap_or("");
-        //         println!("{}", separator);
-        //     }
-        // }
-
-        if let Some(separator) = args.white_space.clone() {
-            if let Some(sep) = separator {
-                println!("{}", sep)
-            } else {
-                println!("")
-            }
-        }
-    }
-}
-
-fn print_line(args: Args, line: Lines<BufReader<File>>) {
-    for (i, line) in line.enumerate() {
-        if args.top.is_some_and(|x| x <= i + 1) {
-            break;
-        }
-        println!("{}", line.unwrap());
-    }
-}
-
-fn print_lines_files(args: Args) {
-    for _ in 0..args.count {
+    for i in 0..args.count {
         for file_path in &args.input {
-            // let iterated_lines = fs::read
-            let contents = fs::read_to_string(&file_path);
-            match contents {
-                Ok(content) => {
-                    print_content(&content, &args.white_space, args.top);
-                }
-                Err(_) => println!("--FAILED TO OPEN {file_path} --"), // This should not really happen
-            }
-        }
-    }
-}
-fn print_content(content: &str, white_space: &Option<Option<String>>, top: Option<usize>) {
-    if let Some(separator_option) = white_space.as_ref() {
-        let separator = separator_option.as_deref().unwrap_or("");
-
-        println!("{}", separator);
-    }
-    if let Some(head_size) = top {
-        let split_content: Vec<&str> = content.split("\n").collect();
-        for i in 0..head_size {
-            if let Some(text) = split_content.get(i) {
-                println!("{}", text);
+            process_input_source(file_path, args);
+            if args.count - 1 > i {
+                print_separator(args);
             }
         }
     }
 }
 
-// The output is wrapped in a Result to allow matching on errors
-// Returns an Iterator to the Reader of the lines of the file.
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+fn process_stdin(args: &Args) {
+    let stdin = io::stdin();
+    let handle = stdin.lock();
+
+    // Buffer the entire stdin, as we might need to multiple times over it.
+    let lines: Vec<_> = handle.lines().collect();
+
+    for i in 0..args.count {
+        let mut k = 0;
+        for line in &lines {
+            if args.top.is_some_and(|x| k >= x) {
+                break;
+            }
+            k += 1;
+            match line {
+                Ok(line) => println!("{}", line),
+                Err(e) => eprintln!("Error reading line: {}", e),
+            }
+        }
+        if args.count - 1 > i {
+            print_separator(args);
+        }
+    }
+}
+
+fn process_direct_input(args: &Args) {
+    let input_combined = args.input.join(" ");
+    for i in 0..args.count {
+        println!("{}", input_combined);
+        if args.count - 1 > i {
+            print_separator(args);
+        }
+    }
+}
+
+fn process_input_source<P: AsRef<Path>>(source: P, args: &Args) {
+    if let Ok(lines) = read_lines(source) {
+        for (i, line) in lines.enumerate() {
+            if args.top.is_some_and(|x| x <= i + 1) {
+                break;
+            }
+            if let Ok(line) = line {
+                println!("{}", line);
+            }
+        }
+    }
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<fs::File>>>
 where
     P: AsRef<Path>,
 {
-    let file = File::open(filename)?;
+    let file = fs::File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
+}
+
+fn print_separator(args: &Args) {
+    if let Some(separator_option) = args.white_space.as_ref() {
+        let separator = separator_option.as_deref().unwrap_or("");
+        println!("{}", separator);
+    }
+}
+
+fn report_errors(errors: &[(&String, io::Error)]) {
+    println!("Stopping operation, there were errors opening the following files:");
+    for (file, err) in errors {
+        println!("{:10} |💥 Error: {}", file, err);
+    }
 }
