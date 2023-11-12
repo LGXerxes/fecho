@@ -25,9 +25,9 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     count: usize,
 
-    /// Optional spacing, if no argument given [\n]
+    /// Optional separator, newline if no argument is given
     #[arg(short, long)]
-    white_space: Option<Option<String>>,
+    separator: Option<Option<String>>,
 
     /// Return display the first [TOP] lines of each echo
     #[arg(short, long)]
@@ -62,9 +62,10 @@ fn process_files(args: &Args) -> Result<(), FechoError> {
     }
 
     for i in 0..args.count {
-        for file_path in &args.input {
+        for (k, file_path) in args.input.iter().enumerate() {
             process_input_source(file_path, args);
-            if args.count - 1 > i {
+
+            if k < args.input.len() - 1 || i < args.count - 1 {
                 print_separator(args);
             }
         }
@@ -132,7 +133,7 @@ where
 }
 
 fn print_separator(args: &Args) {
-    if let Some(separator_option) = args.white_space.as_ref() {
+    if let Some(separator_option) = args.separator.as_ref() {
         let separator = separator_option.as_deref().unwrap_or("");
         println!("{}", separator);
     }
