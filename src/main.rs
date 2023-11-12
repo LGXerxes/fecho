@@ -8,7 +8,7 @@ use std::{
 use atty::Stream;
 use clap::{CommandFactory, Parser};
 
-/// A simple tool to echo multiple files, or text, or piped values.
+/// A simple tool to echo multiple files, text, or piped values.
 #[derive(Parser, Debug)]
 #[command(author = "LGXerxes", version, about)]
 struct Args {
