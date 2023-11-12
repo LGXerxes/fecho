@@ -185,7 +185,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "funtime"
+name = "fecho"
 version = "0.1.0"
 dependencies = [
  "anyhow",
