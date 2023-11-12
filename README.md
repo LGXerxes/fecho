@@ -1,7 +1,15 @@
 # fecho
+
 `echo` made in rust, which can take files as input with the `-f` flag
 
+### Installation
+
+```
+cargo install fecho
+```
+
 ## Options
+
 ```
 A simple tool to echo multiple files, or text, or piped values
 
@@ -20,7 +28,9 @@ Options:
 ```
 
 ## Examples
+
 Using fecho to get the first two lines of a file:
+
 ```
 fecho Cargo.toml -f -c 2 -t 2
 
@@ -29,7 +39,9 @@ name = "fecho"
 [package]
 name = "fecho"
 ```
+
 Or multiple files
+
 ```
 fecho Cargo.toml src/main.rs -f -c 2 -t 2 -s ";🦄;"
 
@@ -47,6 +59,7 @@ use std::{
 ```
 
 You can also pipe it through stdin:
+
 ```
 fecho Cargo.toml -f | ./fecho -c 2 -t 2
 
@@ -57,6 +70,7 @@ name = "fecho"
 ```
 
 Or just:
+
 ```
 fecho 'Hello World!' -c 3 -s 'Hello User!'
 
