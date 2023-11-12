@@ -7,7 +7,7 @@ edition = "2021"
 homepage = "https://github.com/LGXerxes/fecho"
 repository = "https://github.com/LGXerxes/fecho"
 readme = "README.md"
-licence = "MIT"
+license = "MIT"
 keywords = ["cli"]
 categories = ["command-line-interface"]
 
