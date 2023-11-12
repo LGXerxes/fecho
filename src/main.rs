@@ -1,12 +1,14 @@
 use std::{
+    error::Error,
     fs,
-    io::{self, BufRead},
+    io::{self, BufRead, Error as IoError},
     path::Path,
 };
 
-use clap::Parser;
+use atty::Stream;
+use clap::{CommandFactory, Parser};
 
-/// A very cool tool
+/// A simple tool to echo multiple files, or text, or piped values.
 #[derive(Parser, Debug)]
 #[command(author = "LGXerxes", version, about)]
 struct Args {
@@ -15,7 +17,7 @@ struct Args {
     #[arg(required_if_eq("file", "true"))]
     input: Vec<String>,
 
-    /// Path to the file to be processed
+    /// [INPUT] becomes a list of files you want to fecho
     #[arg(short, long)]
     file: bool,
 
@@ -27,34 +29,36 @@ struct Args {
     #[arg(short, long)]
     white_space: Option<Option<String>>,
 
-    /// Return only the first {TOP} lines
+    /// Return display the first [TOP] lines of each echo
     #[arg(short, long)]
     top: Option<usize>,
 }
 
-fn main() {
+fn main() -> Result<(), FechoError> {
     let args = Args::parse();
 
     if args.file {
-        process_files(&args);
+        process_files(&args)?;
     } else if args.input.is_empty() {
-        process_stdin(&args);
+        process_stdin(&args)?;
     } else {
         process_direct_input(&args);
     }
+    Ok(())
 }
 
-fn process_files(args: &Args) {
-    let mut errors = Vec::new();
+fn process_files(args: &Args) -> Result<(), FechoError> {
+    let mut errors = vec![];
     for file_path in &args.input {
         if let Err(err) = fs::File::open(file_path) {
             errors.push((file_path, err));
         }
     }
 
-    if !errors.is_empty() {
+    if !&errors.is_empty() {
         report_errors(&errors);
-        return;
+
+        return Err(FechoError::AccessingFilesError);
     }
 
     for i in 0..args.count {
@@ -65,31 +69,35 @@ fn process_files(args: &Args) {
             }
         }
     }
+    Ok(())
 }
 
-fn process_stdin(args: &Args) {
+fn process_stdin(args: &Args) -> Result<(), FechoError> {
+    if atty::is(Stream::Stdin) {
+        Args::command().write_help(&mut std::io::stderr()).unwrap();
+        return Ok(());
+    }
     let stdin = io::stdin();
     let handle = stdin.lock();
 
-    // Buffer the entire stdin, as we might need to multiple times over it.
-    let lines: Vec<_> = handle.lines().collect();
+    // Buffer the entire stdin, as we might need to go multiple times over it.
+    let lines: Result<Vec<_>, IoError> = handle.lines().collect();
+    let lines = lines.map_err(|x| x)?;
 
-    for i in 0..args.count {
-        let mut k = 0;
+    for k in 0..args.count {
+        let mut i = 0;
         for line in &lines {
-            if args.top.is_some_and(|x| k >= x) {
+            if args.top.is_some_and(|x| x <= i) {
                 break;
             }
-            k += 1;
-            match line {
-                Ok(line) => println!("{}", line),
-                Err(e) => eprintln!("Error reading line: {}", e),
-            }
+            i += 1;
+            println!("{}", line);
         }
-        if args.count - 1 > i {
+        if args.count - 1 > k {
             print_separator(args);
         }
     }
+    Ok(())
 }
 
 fn process_direct_input(args: &Args) {
@@ -105,7 +113,7 @@ fn process_direct_input(args: &Args) {
 fn process_input_source<P: AsRef<Path>>(source: P, args: &Args) {
     if let Ok(lines) = read_lines(source) {
         for (i, line) in lines.enumerate() {
-            if args.top.is_some_and(|x| x <= i + 1) {
+            if args.top.is_some_and(|x| x <= i) {
                 break;
             }
             if let Ok(line) = line {
@@ -131,8 +139,29 @@ fn print_separator(args: &Args) {
 }
 
 fn report_errors(errors: &[(&String, io::Error)]) {
-    println!("Stopping operation, there were errors opening the following files:");
     for (file, err) in errors {
-        println!("{:10} |💥 Error: {}", file, err);
+        println!("{:20} |💥 Error: {}", file, err);
+    }
+}
+
+#[derive(Debug)]
+enum FechoError {
+    IoError(io::Error),
+    AccessingFilesError,
+}
+impl Error for FechoError {}
+
+impl From<io::Error> for FechoError {
+    fn from(err: io::Error) -> Self {
+        FechoError::IoError(err)
+    }
+}
+
+impl std::fmt::Display for FechoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            FechoError::IoError(ref err) => write!(f, "IO error: {}", err),
+            FechoError::AccessingFilesError => write!(f, "Process aborted, see above for details"),
+        }
     }
 }
