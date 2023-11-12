@@ -11,6 +11,10 @@ license = "MIT"
 keywords = ["cli"]
 categories = ["command-line-interface"]
 
+[[bin]]
+name = "fecho"
+path = "src/main.rs"
+
 [dependencies]
 atty = "0.2.14"
 clap = { version = "4.4.8", features = ["derive"] }
