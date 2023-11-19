@@ -5,37 +5,45 @@ use std::{
     path::Path,
 };
 
-use atty::Stream;
-use clap::{CommandFactory, Parser};
+use clap::Parser;
 
 /// A simple tool to echo multiple files, text, or piped values.
 #[derive(Parser, Debug)]
 #[command(author = "LGXerxes", version, about)]
 struct Args {
-    /// What should be repeated
+    /// What should be repeated,
     // #[arg(short, long)]
     #[arg(required_if_eq("file", "true"))]
     input: Vec<String>,
 
-    /// [INPUT] becomes a list of files you want to fecho
+    /// [INPUT] becomes a list of files you want to fecho.
     #[arg(short, long)]
     file: bool,
 
-    /// Quantity of repetitions
+    /// Quantity of repetitions.
     #[arg(short, long, default_value_t = 1)]
-    count: usize,
+    number: usize,
+
+    /// Allows for continuous returning of the input.
+    /// --top decides when the separator should be printed.
+    /// Only effective in stdin mode.
+    #[arg(short, long)]
+    continuous: bool,
 
     /// Optional separator, newline if no argument is given
-    #[arg(short, long)]
+    #[arg(short, long, allow_hyphen_values = true)]
     separator: Option<Option<String>>,
 
-    /// Return display the first [TOP] lines of each echo
+    /// Return display the first [TOP] lines of each echo.
     #[arg(short, long)]
     top: Option<usize>,
 }
 
 fn main() -> Result<(), FechoError> {
     let args = Args::parse();
+    if atty::is(atty::Stream::Stdin) {
+        println!("fecho: reading from stdin, press Ctrl+D to stop")
+    }
 
     if args.file {
         process_files(&args)?;
@@ -44,11 +52,13 @@ fn main() -> Result<(), FechoError> {
     } else {
         process_direct_input(&args);
     }
+
     Ok(())
 }
 
 fn process_files(args: &Args) -> Result<(), FechoError> {
     let mut errors = vec![];
+
     for file_path in &args.input {
         if let Err(err) = fs::File::open(file_path) {
             errors.push((file_path, err));
@@ -57,15 +67,14 @@ fn process_files(args: &Args) -> Result<(), FechoError> {
 
     if !&errors.is_empty() {
         report_errors(&errors);
-
         return Err(FechoError::AccessingFilesError);
     }
 
-    for i in 0..args.count {
+    for i in 0..args.number {
         for (k, file_path) in args.input.iter().enumerate() {
             process_input_source(file_path, args);
 
-            if k < args.input.len() - 1 || i < args.count - 1 {
+            if k < args.input.len() - 1 || i < args.number - 1 {
                 print_separator(args);
             }
         }
@@ -74,38 +83,51 @@ fn process_files(args: &Args) -> Result<(), FechoError> {
 }
 
 fn process_stdin(args: &Args) -> Result<(), FechoError> {
-    if atty::is(Stream::Stdin) {
-        Args::command().write_help(&mut std::io::stderr()).unwrap();
-        return Ok(());
-    }
     let stdin = io::stdin();
     let handle = stdin.lock();
 
-    // Buffer the entire stdin, as we might need to go multiple times over it.
-    let lines: Result<Vec<_>, IoError> = handle.lines().collect();
-    let lines = lines.map_err(|x| x)?;
-
-    for k in 0..args.count {
-        let mut i = 0;
-        for line in &lines {
-            if args.top.is_some_and(|x| x <= i) {
-                break;
-            }
-            i += 1;
+    // --top decides when the separator should be printed
+    if args.continuous {
+        let mut top = args.top;
+        for line in handle.lines() {
+            let line = line.map_err(|x| x)?;
             println!("{}", line);
+            if let Some(top) = top.as_mut() {
+                *top -= 1;
+            }
+            if top.is_some_and(|x| x <= 0) {
+                print_separator(args);
+                top = args.top;
+                continue;
+            }
         }
-        if args.count - 1 > k {
-            print_separator(args);
+    } else {
+        let lines: Result<Vec<_>, IoError> = handle.lines().collect();
+        let lines = lines.map_err(|x| x)?;
+
+        for k in 0..args.number {
+            let mut i = 0;
+            for line in &lines {
+                if args.top.is_some_and(|x| x <= i) {
+                    break;
+                }
+                i += 1;
+                println!("{}", line);
+            }
+            if args.number - 1 > k {
+                print_separator(args);
+            }
         }
     }
+
     Ok(())
 }
 
 fn process_direct_input(args: &Args) {
     let input_combined = args.input.join(" ");
-    for i in 0..args.count {
+    for i in 0..args.number {
         println!("{}", input_combined);
-        if args.count - 1 > i {
+        if args.number - 1 > i {
             print_separator(args);
         }
     }
