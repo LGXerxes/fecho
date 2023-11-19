@@ -2,7 +2,7 @@
 name = "fecho"
 description = "A simple tool to echo multiple files, text, or piped values."
 authors = ["LGXerxes"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 homepage = "https://github.com/LGXerxes/fecho"
 repository = "https://github.com/LGXerxes/fecho"
