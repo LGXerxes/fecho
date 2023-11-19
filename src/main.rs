@@ -41,9 +41,6 @@ struct Args {
 
 fn main() -> Result<(), FechoError> {
     let args = Args::parse();
-    if atty::is(atty::Stream::Stdin) {
-        println!("fecho: reading from stdin, press Ctrl+D to stop")
-    }
 
     if args.file {
         process_files(&args)?;
