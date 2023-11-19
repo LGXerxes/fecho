@@ -87,12 +87,12 @@ fn process_stdin(args: &Args) -> Result<(), FechoError> {
     if args.continuous {
         let mut top = args.top;
         for line in handle.lines() {
-            let line = line.map_err(|x| x)?;
+            let line = line?;
             println!("{}", line);
             if let Some(top) = top.as_mut() {
                 *top -= 1;
             }
-            if top.is_some_and(|x| x <= 0) {
+            if top.is_some_and(|x| x == 0) {
                 print_separator(args);
                 top = args.top;
                 continue;
@@ -100,15 +100,13 @@ fn process_stdin(args: &Args) -> Result<(), FechoError> {
         }
     } else {
         let lines: Result<Vec<_>, IoError> = handle.lines().collect();
-        let lines = lines.map_err(|x| x)?;
+        let lines = lines?;
 
         for k in 0..args.number {
-            let mut i = 0;
-            for line in &lines {
+            for (i, line) in lines.iter().enumerate() {
                 if args.top.is_some_and(|x| x <= i) {
                     break;
                 }
-                i += 1;
                 println!("{}", line);
             }
             if args.number - 1 > k {
