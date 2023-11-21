@@ -61,7 +61,7 @@ use std::{
 You can also pipe it through stdin:
 
 ```
-fecho Cargo.toml -f | ./fecho -n 2 -t 2
+fecho Cargo.toml -f | fecho -n 2 -t 2
 
 [package]
 name = "fecho"
@@ -101,7 +101,7 @@ PING archlinux.org (xx.xxx.xxx.xxx) 56(84) bytes of data.
 Comparing it to the normal output:\
 Where it will take the entire output and only then print it.
 ```
-ping archlinux.org -c 6 | ./fecho -t 2 -n 3 -s "=============="
+ping archlinux.org -c 6 | fecho -t 2 -n 3 -s "=============="
 
 PING archlinux.org (xx.xxx.xxx.xxx) 56(84) bytes of data.
 64 bytes from archlinux.org (xx.xxx.xxx.xxx): icmp_seq=1 ttl=53 time=44.3 ms
